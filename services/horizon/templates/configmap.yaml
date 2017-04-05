@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: horizon
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: horizon
+    spec:
+      containers:
+        - name: keystone
+          image: osp-on-ocp/rhel-binary-horizon
+          env:
+            - name: KOLLA_CONFIG_STRATEGY
+              value: COPY_ALWAYS
+          ports:
+            - containerPort: 8080
+              name: horizon
+          volumeMounts:
+            - name: kolla-config
+              mountPath: /var/lib/kolla/config_files/
+      volumes:
+        - name: kolla-config
+          configMap:
+            name: horizon-kolla-config
