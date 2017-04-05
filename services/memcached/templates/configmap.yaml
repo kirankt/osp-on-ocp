@@ -1,0 +1,13 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: memcached-kolla-config
+  namespace: default
+  labels:
+    service: memcached
+data:
+  kolla-config: |
+    {
+      "command": "/usr/bin/memcached -p 11211 -c 5000",
+      "config_files": []
+    }
