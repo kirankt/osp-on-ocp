@@ -128,8 +128,8 @@ LOCAL_PATH = '/tmp'
 # (usually behind a load-balancer). Either you have to make sure that a session
 # gets all requests routed to the same dashboard instance or you set the same
 # SECRET_KEY for all of them.
-# Kiran
-SECRET_KEY='9ec4FeuYcv'
+# CHANGEME
+SECRET_KEY='some_osp_cluster_secret_key'
 
 # We recommend you use memcached for development; otherwise after every reload
 # of the django development server, you will have to login again. To use
