@@ -1,0 +1,130 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: horizon-kolla-config
+  namespace: default
+  labels:
+    service: horizon
+data:
+  config.json: |
+    {
+        "command": "/usr/sbin/httpd -DFOREGROUND",
+        "config_files": [
+          {
+            "source": "/var/lib/kolla/config_files/horizon.conf",
+            "dest": "/etc/httpd/conf.d/horizon.conf",
+            "owner": "horizon",
+            "perm": "0644"
+          },
+          {
+            "source": "/var/lib/kolla/config_files/horizon/glance_policy.json",
+            "dest": "/etc/openstack-dashboard/glance_policy.json",
+            "owner": "horizon",
+            "perm": "0600",
+            "optional": true
+          },
+          {
+            "source": "/var/lib/kolla/config_files/horizon/heat_policy.json",
+            "dest": "/etc/openstack-dashboard/heat_policy.json",
+            "owner": "horizon",
+            "perm": "0600",
+            "optional": true
+          },
+          {
+            "source": "/var/lib/kolla/config_files/horizon/keystone_policy.json",
+            "dest": "/etc/openstack-dashboard/keystone_policy.json",
+            "owner": "horizon",
+            "perm": "0600",
+            "optional": true
+          },
+          {
+            "source": "/var/lib/kolla/config_files/horizon/neutron_policy.json",
+            "dest": "/etc/openstack-dashboard/neutron_policy.json",
+            "owner": "horizon",
+            "perm": "0600",
+            "optional": true
+          },
+          {
+            "source": "/var/lib/kolla/config_files/horizon/nova_policy.json",
+            "dest": "/etc/openstack-dashboard/nova_policy.json",
+            "owner": "horizon",
+            "perm": "0600",
+            "optional": true
+          },
+          {
+            "source": "/var/lib/kolla/config_files/local_settings",
+            "dest": "/etc/openstack-dashboard/local_settings",
+            "owner": "horizon",
+            "perm": "0644"
+          }
+      ]
+    }
+  horizon.conf: |
+    Listen 8080
+    User horizon
+
+    <VirtualHost *:8080>
+      LogLevel warn
+      ErrorLog /var/log/kolla/horizon/horizon.log
+      CustomLog /var/log/kolla/horizon/horizon-access.log combined
+
+      WSGIScriptReloading On
+      WSGIDaemonProcess horizon-http processes=5 threads=1 user=horizon group=horizon display-name=%{GROUP} python-path=/usr/share/openstack-dashboard
+      WSGIProcessGroup horizon-http
+      WSGIScriptAlias / /usr/share/openstack-dashboard/openstack_dashboard/wsgi/django.wsgi
+      WSGIPassAuthorization On
+
+      <Location "/">
+        Require all granted
+      </Location>
+
+      Alias /static /usr/share/openstack-dashboard/static
+      <Location "/static">
+        SetHandler None
+      </Location>
+    </VirtualHost>
+
+    # NOTE(Jeffrey4l): Only enable deflate when tls is disabled until the
+    # OSSN-0037 is fixed.
+    # see https://wiki.openstack.org/wiki/OSSN/OSSN-0037 for more information.
+    <IfModule mod_deflate.c>
+      # Compress HTML, CSS, JavaScript, Text, XML and fonts
+      AddOutputFilterByType DEFLATE application/javascript
+      AddOutputFilterByType DEFLATE application/rss+xml
+      AddOutputFilterByType DEFLATE application/vnd.ms-fontobject
+      AddOutputFilterByType DEFLATE application/x-font
+      AddOutputFilterByType DEFLATE application/x-font-opentype
+      AddOutputFilterByType DEFLATE application/x-font-otf
+      AddOutputFilterByType DEFLATE application/x-font-truetype
+      AddOutputFilterByType DEFLATE application/x-font-ttf
+      AddOutputFilterByType DEFLATE application/x-javascript   
+      AddOutputFilterByType DEFLATE application/xhtml+xml
+      AddOutputFilterByType DEFLATE application/xml
+      AddOutputFilterByType DEFLATE font/opentype
+      AddOutputFilterByType DEFLATE font/otf
+      AddOutputFilterByType DEFLATE font/ttf
+      AddOutputFilterByType DEFLATE image/svg+xml
+      AddOutputFilterByType DEFLATE image/x-icon
+      AddOutputFilterByType DEFLATE text/css
+      AddOutputFilterByType DEFLATE text/html
+      AddOutputFilterByType DEFLATE text/javascript
+      AddOutputFilterByType DEFLATE text/plain
+      AddOutputFilterByType DEFLATE text/xml
+    </IfModule>
+    <IfModule mod_expires.c>
+      <Filesmatch "\.(jpg|jpeg|png|gif|js|css|swf|ico|woff)$">
+        ExpiresActive on
+        ExpiresDefault "access plus 1 month"
+        ExpiresByType application/javascript "access plus 1 year"
+        ExpiresByType text/css "access plus 1 year"
+        ExpiresByType image/x-ico "access plus 1 year"
+        ExpiresByType image/jpg "access plus 1 year"
+        ExpiresByType image/jpeg "access plus 1 year"
+        ExpiresByType image/gif "access plus 1 year"
+        ExpiresByType image/png "access plus 1 year"
+        Header merge Cache-Control public
+        Header unset ETag
+      </Filesmatch>
+    </IfModule>
+  local_settings: |
+   
