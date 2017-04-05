@@ -1,0 +1,5 @@
+cat /etc/kolla/memcached/config.json
+{
+    "command": "/usr/bin/memcached -p 11211 -c 5000",
+    "config_files": []
+}
