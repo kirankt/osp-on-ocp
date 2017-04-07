@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: openstack-memcached-template 
+  annotations:
+    description: "Memcached" 
+    iconClass: "icon-redis" 
+    tags: "openstack,memcached"
+objects:   
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: ${NAME}
+      annotations:
+        description: "Memcached"
+    spec:
+      clusterIP: None
+      ports:
+        -
+          name: ${NAME}
+          port: 11211
+          targetPort: 11211
+      selector:
+        name: ${NAME}
+  - kind: Pod
+    apiVersion: v1
+    metadata:
+      name: ${NAME}
+    spec:
+      containers:
+      -
+        name: "memcached"
+        env:
+        -
+          name: "KOLLA_CONFIG_STRATEGY"
+          value: "${KOLLA_CONFIG_STRATEGY}"
+        image: 172.30.202.25:5000/osp-dev/rhel-binary-memcached:latest
+        ports:
+        - containerPort: 11211
+          protocol: TCP
+        volumeMounts:
+        - name: config-volume
+          mountPath: /var/lib/kolla/config_files/
+      volumes:
+      - name: config-volume
+        configMap:
+          name: memcached-kolla-config
+  - kind: ConfigMap
+    apiVersion: v1
+    metadata:
+      name: memcached-kolla-config
+      namespace: default
+      labels:
+        service: memcached
+    data:
+      config.json: |
+        {
+           "command": "/usr/bin/memcached -p 11211 -c 5000",
+           "config_files": []
+        }
+
+parameters:  
+  - 
+    description: "memcached"
+    name: NAME
+    value: memcached
+    required: true
+  -
+    description: "Kolla Configuration Strategy"
+    name: KOLLA_CONFIG_STRATEGY
+    value: COPY_ONCE
+    required: true
