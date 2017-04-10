@@ -11,71 +11,31 @@ objects:
     kind: Service
     metadata:
       name: ${NAME}
-      annotations:
-        description: "Memcached"
+    label:
+      name: ${NAME}
     spec:
-      clusterIP: None
       ports:
-        -
-          name: ${NAME}
-          port: 11211
-          targetPort: 11211
+      - port: 11211
+        protocol: TCP
+        targetPort: 11211
       selector:
         name: ${NAME}
-  - kind: DeploymentConfig
+  - kind: Pod
     apiVersion: v1
     metadata:
       name: ${NAME}
+    label:
+      name: ${NAME}
     spec:
-      replicas: 1
-      template:
-        metadata:
-          labels:
-            name: ${NAME}
-        spec:
-          containers:
-          - name: ${NAME}
-
-            env:
-            -
-              name: "KOLLA_CONFIG_STRATEGY"
-              value: "${KOLLA_CONFIG_STRATEGY}"
-
-            image: 172.30.202.25:5000/osp-dev/rhel-binary-memcached:latest
-
-            ports:
-            - containerPort: 11211
-              protocol: TCP
-
-            volumeMounts:
-            - name: config-volume
-              mountPath: /var/lib/kolla/config_files/
-          volumes:
-          - name: config-volume
-            configMap:
-              name: memcached-kolla-config
-  - kind: ConfigMap
-    apiVersion: v1
-    metadata:
-      name: memcached-kolla-config
-      namespace: default
-      labels:
-        service: memcached
-    data:
-      config.json: |
-        {
-           "command": "/usr/bin/memcached -p 11211 -c 5000",
-           "config_files": []
-        }
-
+      containers:
+      - name: "memcached"
+        image: docker.io/memcached
+        ports:
+        - containerPort: 11211
+          protocol: TCP
 parameters:  
   - 
     description: "memcached"
     name: NAME
     value: memcached
-    required: true
-  -
-    description: "Kolla Configuration Strategy"
-    name: KOLLA_CONFIG_STRATEGY
-    value: COPY_ONCE
     required: true

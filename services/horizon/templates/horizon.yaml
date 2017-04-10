@@ -39,32 +39,45 @@ objects:
     status:
       loadBalancer: {}
 
-  - kind: Pod
-    apiVersion: v1
+  - apiVersion: v1
+    kind: DeploymentConfig
     metadata:
       name: ${NAME}
-      labels:
-        name: ${NAME}
     spec:
-      serviceAccount: openstack
-      containers:
-      -
-        name: "horizon"
-        env:
-        -
-          name: "KOLLA_CONFIG_STRATEGY"
-          value: "${KOLLA_CONFIG_STRATEGY}"
-        image: 172.30.202.25:5000/osp-dev/rhel-binary-horizon:latest
-        ports:
-        - containerPort: 8080
-          protocol: TCP
-        volumeMounts:
-        - name: config-volume
-          mountPath: /var/lib/kolla/config_files/
-      volumes:
-      - name: config-volume
-        configMap:
-          name: horizon-kolla-config
+      replicas: 3
+      selector:    
+        name: ${NAME}
+      triggers:
+      - type: ConfigChange 
+      strategy:
+        type: Rolling       
+
+      template:    
+        metadata:
+          labels:  
+            name: ${NAME}
+        spec:
+          containers:
+          -
+            name: "horizon"
+            env:
+            -
+              name: "KOLLA_CONFIG_STRATEGY"
+              value: "${KOLLA_CONFIG_STRATEGY}"
+            image: 172.30.202.25:5000/osp-dev/rhel-binary-horizon:latest
+            ports:
+            - containerPort: 8080
+              protocol: TCP
+            volumeMounts:
+            - name: config-volume
+              mountPath: /var/lib/kolla/config_files/
+          volumes:
+          - name: config-volume
+            configMap:
+              name: horizon-kolla-config
+          restartPolicy: Always
+    
+
   - kind: ConfigMap
     apiVersion: v1
     metadata:
