@@ -7,26 +7,46 @@ metadata:
     iconClass: "icon-redis" 
     tags: "openstack,horizon"
 objects:   
+  - apiVersion: v1
+    kind: Route
+    metadata:
+      name: ${NAME}
+      labels:
+        name: ${NAME}
+    spec:
+      host: ""
+      port:
+        targetPort: 8080
+      to:
+        kind: Service
+        name: ${NAME}
+      wildcardPolicy: None
+
   - kind: Service
     apiVersion: v1
     metadata:
+      labels:
+        name: ${NAME}
       name: ${NAME}
-      annotations:
-        description: "Exposes Horizon dashboard"
     spec:
-      clusterIP: None
       ports:
         -
-          name: ${NAME}
           port: 8080
           targetPort: 8080
+          protocol: TCP
       selector:
         name: ${NAME}
+    status:
+      loadBalancer: {}
+
   - kind: Pod
     apiVersion: v1
     metadata:
       name: ${NAME}
+      labels:
+        name: ${NAME}
     spec:
+      serviceAccount: openstack
       containers:
       -
         name: "horizon"
@@ -51,7 +71,7 @@ objects:
       name: horizon-kolla-config
       namespace: default
       labels:
-        service: horizon
+        name: horizon
     data:
       config.json: |
         {

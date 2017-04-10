@@ -4,5 +4,9 @@
 COPY se-ospd-cacert.pem /etc/pki/ca-trust/source/anchors/se-ospd-cacert.pem
 RUN update-ca-trust extract
 RUN chown -R 42420:42420 /var/run/httpd/ /run/httpd/ 
+RUN mkdir -p /var/log/kolla/horizon
+RUN chown -R 42420:42420 /var/log/
+RUN chmod 755 /var/log/kolla/horizon
+
 USER 42420
 {% endblock %}
