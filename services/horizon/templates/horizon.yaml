@@ -222,7 +222,7 @@ objects:
         CACHES = {
             'default': {
                 'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
-                'LOCATION': ['10.19.139.81:11211']    }
+                'LOCATION': ['memcached:11211']    }
         }
         EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
         OPENSTACK_HOST = "10.19.5.11"
