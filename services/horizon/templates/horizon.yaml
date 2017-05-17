@@ -64,7 +64,7 @@ objects:
             -
               name: "KOLLA_CONFIG_STRATEGY"
               value: "${KOLLA_CONFIG_STRATEGY}"
-            image: rhel-binary-horizon:latest
+            image: 172.30.202.25:5000/osp-dev/rhel-binary-horizon
             ports:
             - containerPort: 8080
               protocol: TCP
