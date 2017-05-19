@@ -21,7 +21,6 @@ objects:
         kind: Service
         name: ${NAME}
       wildcardPolicy: None
-
   - kind: Service
     apiVersion: v1
     metadata:
@@ -30,15 +29,13 @@ objects:
       name: ${NAME}
     spec:
       ports:
-        -
-          port: 8080
+        - port: 8080
           targetPort: 8080
           protocol: TCP
       selector:
         name: ${NAME}
     status:
       loadBalancer: {}
-
   - apiVersion: v1
     kind: DeploymentConfig
     metadata:
@@ -51,20 +48,17 @@ objects:
       - type: ConfigChange 
       strategy:
         type: Rolling       
-
       template:    
         metadata:
           labels:  
             name: ${NAME}
         spec:
           containers:
-          -
-            name: "horizon"
+          - name: "horizon"
             env:
-            -
-              name: "KOLLA_CONFIG_STRATEGY"
+            - name: "KOLLA_CONFIG_STRATEGY"
               value: "${KOLLA_CONFIG_STRATEGY}"
-            image: 172.30.202.25:5000/osp-dev/rhel-binary-horizon
+            image: rhel-binary-horizon
             ports:
             - containerPort: 8080
               protocol: TCP
@@ -76,12 +70,10 @@ objects:
             configMap:
               name: horizon-kolla-config
           restartPolicy: Always
-    
-
   - kind: ConfigMap
     apiVersion: v1
     metadata:
-      name: horizon-kolla-config
+      name: ${NAME}-kolla-config
       namespace: default
       labels:
         name: horizon
@@ -225,8 +217,8 @@ objects:
                 'LOCATION': ['memcached:11211']    }
         }
         EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-        OPENSTACK_HOST = "10.19.5.11"
-        OPENSTACK_KEYSTONE_URL = "https://10.19.5.11:13000/v2.0"
+        OPENSTACK_HOST = ${OPENSTACK_HOST}
+        OPENSTACK_KEYSTONE_URL = "https://${OPENSTACK_HOST}:13000/v2.0"
         OPENSTACK_KEYSTONE_DEFAULT_ROLE = "_member_"
         OPENSTACK_SSL_NO_VERIFY = False
         OPENSTACK_KEYSTONE_BACKEND = {
@@ -497,15 +489,16 @@ objects:
         REST_API_REQUIRED_SETTINGS = ['OPENSTACK_HYPERVISOR_FEATURES',
                               'LAUNCH_INSTANCE_DEFAULTS',
                                       'OPENSTACK_IMAGE_FORMATS']
-        
 parameters:  
-  - 
-    description: "horizon"
+  - description: "horizon"
     name: NAME
     value: horizon
     required: true
-  -
-    description: "Kolla Configuration Strategy"
+  - description: "Kolla Configuration Strategy"
     name: KOLLA_CONFIG_STRATEGY
     value: COPY_ONCE
+    required: true
+  - description: "OpenStack Host"
+    name: OPENSTACK_HOST
+    value: 10.19.5.11
     required: true
