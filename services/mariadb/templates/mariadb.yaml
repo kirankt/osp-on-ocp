@@ -12,7 +12,7 @@ spec:
         pod.beta.kubernetes.io/init-containers: '[          
           {
              "name": "dependencies",
-             "image": "docker.io/kolla/centos-binary-kubernetes-entrypoint:4.0.0",
+             "image": "172.30.202.25:5000/osp-dev/rhel-binary-mariadb",
              "imagePullPolicy": "IfNotPresent",
              "env": [
                {
@@ -44,12 +44,12 @@ spec:
               name: host-etc-localtime
               readOnly: true
             - mountPath: /var/lib/kolla/config_files
-              name: pod-main-config
+              name: kolla-config
+            - mountPath: /etc/my.cnf.d
+              name: mariadb-config
             - mountPath: /var/lib/mysql
               name: mariadb-persistent-storage
           env:            
-            - name: KOLLA_KUBERNETES
-              value: ""
             - name: KOLLA_CONFIG_STRATEGY
               value: COPY_ONCE
             - name: DATABASE_PASSWORD
@@ -60,30 +60,13 @@ spec:
           ports:
             - containerPort: 3306
               name: "mariadb"        
-        - name: logging
-          image: "172.30.202.25:5000/osp-dev/rhel-binary-fluentd"
-          imagePullPolicy: "IfNotPresent"
-          volumeMounts:
-            - mountPath: /var/lib/kolla/config_files
-              name: logging-config    
-            - mountPath: /var/log/kolla/
-              name: kolla-logs
-            - mountPath: /etc/localtime
-              name: host-etc-localtime
-              readOnly: true
-          env:
-            - name: KOLLA_CONFIG_STRATEGY
-              value: COPY_ONCE
       volumes:        
         - name: host-etc-localtime
           hostPath:
             path: /etc/localtime
         - name: kolla-logs
           emptyDir: {}
-        - name: logging-config
-          configMap:
-            name: mariadb-logging
-        - name: pod-main-config
+        - name: kolla-config
           configMap:
             name: mariadb
         - name: mariadb-persistent-storage
@@ -110,8 +93,10 @@ spec:
             - mountPath: /etc/localtime
               name: host-etc-localtime
               readOnly: true
-            - mountPath: /var/lib/kolla/config_files
+            - mountPath: /etc/my.cnf.d
               name: mariadb-config
+            - mountPath: /var/lib/kolla/config_files
+              name: kolla-config
             - mountPath: /var/lib/mysql
               name: mariadb-persistent-storage
           env:            
@@ -134,14 +119,36 @@ spec:
           emptyDir: {}
         - name: mariadb-config
           configMap:
-            name: mariadb
+            name: mariadb-kolla-config
+            items:
+              - key: server-cnf
+                path: server.cnf
+        - name: kolla-config
+          configMap:
+            name: mariadb-kolla-config
+            items:
+              - key: kolla-config
+                path: config.json
         - name: mariadb-persistent-storage
           persistentVolumeClaim:
             claimName: mariadb
       restartPolicy: OnFailure
 metadata:
   name: mariadb-init-element
-
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mariadb-kolla-config
+data:
+  kolla-config: |
+    {
+        "command": "/usr/bin/mysqld_safe",
+        "config_files": []
+    }
+  server-cnf: |
+    [mysqld]
+    pid-file=/var/lib/mysql/mariadb.pid
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -152,7 +159,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 10
+      storage: 1
 
 ---
 apiVersion: v1
