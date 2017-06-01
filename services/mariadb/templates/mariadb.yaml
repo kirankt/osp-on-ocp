@@ -16,6 +16,10 @@ spec:
              "imagePullPolicy": "IfNotPresent",
              "env": [
                {
+                 "name": "TZ",
+                 "value": "UTC"
+               },
+               {
                  "name": "DEPENDENCY_JOBS",
                  "value": "mariadb-init-element"
                },
@@ -40,9 +44,6 @@ spec:
           volumeMounts:            
             - mountPath: /var/log/kolla/
               name: kolla-logs
-            - mountPath: /etc/localtime
-              name: host-etc-localtime
-              readOnly: true
             - mountPath: /var/lib/kolla/config_files
               name: kolla-config
             - mountPath: /etc/my.cnf.d
@@ -50,6 +51,8 @@ spec:
             - mountPath: /var/lib/mysql
               name: mariadb-persistent-storage
           env:            
+            - name: TZ
+              value: UTC
             - name: KOLLA_CONFIG_STRATEGY
               value: COPY_ONCE
             - name: DATABASE_PASSWORD
@@ -61,9 +64,6 @@ spec:
             - containerPort: 3306
               name: "mariadb"        
       volumes:        
-        - name: host-etc-localtime
-          hostPath:
-            path: /etc/localtime
         - name: kolla-logs
           emptyDir: {}
         - name: kolla-config
@@ -90,9 +90,6 @@ spec:
           volumeMounts:            
             - mountPath: /var/log/kolla/
               name: kolla-logs
-            - mountPath: /etc/localtime
-              name: host-etc-localtime
-              readOnly: true
             - mountPath: /etc/my.cnf.d
               name: mariadb-config
             - mountPath: /var/lib/kolla/config_files
@@ -100,10 +97,8 @@ spec:
             - mountPath: /var/lib/mysql
               name: mariadb-persistent-storage
           env:            
-            - name: KOLLA_KUBERNETES
-              value: ""
-            - name: KOLLA_BOOTSTRAP
-              value: ""
+            - name: TZ
+              value: UTC
             - name: KOLLA_CONFIG_STRATEGY
               value: COPY_ONCE
             - name: DB_ROOT_PASSWORD
@@ -112,9 +107,6 @@ spec:
                   name: database-password
                   key: password
       volumes:        
-        - name: host-etc-localtime
-          hostPath:
-            path: /etc/localtime
         - name: kolla-logs
           emptyDir: {}
         - name: mariadb-config
