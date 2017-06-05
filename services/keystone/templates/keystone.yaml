@@ -1,415 +1,565 @@
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: "keystone-create-db"
-spec:
-  template:    
-    metadata:
-      annotations:
-        pod.beta.kubernetes.io/init-containers: '[          
-          {
-             "name": "dependencies",
-             "image": "172.30.202.25:5000/osp-dev/rhel-binary-keystone",
-             "imagePullPolicy": "IfNotPresent",
-             "env": [
-               {
-                 "name": "DEPENDENCY_SERVICE",
-                 "value": "mariadb"
-               },
-               {
-                 "name": "NAMESPACE",
-                 "value": "NAMESPACE"
-               }
-             ]
-          }  
-  ]'
-    spec:
-      nodeSelector:
-          kolla_controller: "true"
-      restartPolicy: OnFailure
-      containers:
-        - image: "172.30.202.25:5000/osp-dev/rhel-binary-keystone"
-          imagePullPolicy: "IfNotPresent"
-          name: "creating-keystone-database"
-          command: ["sh", "-c"]
-          args:
-            - ansible localhost -m mysql_db -a
-              "login_host='mariadb'
-               login_port='3306'
-               login_user='root'
-               login_password='$DATABASE_PASSWORD'
-               name='keystone'"
-          volumeMounts:
-            - mountPath: /var/log/kolla/
-              name: kolla-logs
-            - mountPath: /etc/localtime
-              name: host-etc-localtime
-              readOnly: true
-          env:
-            - name: ANSIBLE_NOCOLOR
-              value: "1"
-            - name: ANSIBLE_LIBRARY
-              value: "/usr/share/ansible"
-            - name: DATABASE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: database-password
-                  key: password
-        - image: "172.30.202.25:5000/osp-dev/rhel-binary-keystone"
-          imagePullPolicy: "IfNotPresent"
-          name: "creating-keystone-user-and-permissions"
-          command: ["sh", "-c"]
-          args:
-            - ansible localhost -m mysql_user -a
-              "login_host='mariadb'
-               login_port='3306'
-               login_user='root'
-               login_password='$DATABASE_PASSWORD'
-               name='keystone'
-               password='$KEYSTONE_DATABASE_PASSWORD'
-               host='%'
-               priv='keystone.*:ALL'
-               append_privs='yes'"
-          volumeMounts:
-            - mountPath: /var/log/kolla/
-              name: kolla-logs
-            - mountPath: /etc/localtime
-              name: host-etc-localtime
-              readOnly: true
-          env:
-            - name: ANSIBLE_NOCOLOR
-              value: "1"
-            - name: ANSIBLE_LIBRARY
-              value: "/usr/share/ansible"
-            - name: DATABASE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: database-password
-                  key: password
-            - name: "KEYSTONE_DATABASE_PASSWORD"
-              valueFrom:
-                secretKeyRef:
-                  name: "keystone-database-password"
-                  key: password
-      volumes:        
-        - name: host-etc-localtime
-          hostPath:
-            path: /etc/localtime
-        - name: kolla-logs
-          emptyDir: {}
-
----
 apiVersion: v1
-kind: Service
-spec:
-  ports:
-    - port: 5000
-      name: "keystone-public"
-  externalIPs:
-    - 
-  selector:
-    service: "keystone"
-    type: "api"
+kind: Template
 metadata:
-   name:  "keystone-public"
-
----
-apiVersion: v1
-kind: Service
-spec:
-  ports:
-    - port: 5000
-      name: "keystone-internal"
-  externalIPs:
-    - 
-  selector:
-    service: "keystone"
-    type: "api"
-metadata:
-   name:  "keystone-internal"
-
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: keystone-create-endpoints
-spec:
-  template:    
+  name: openstack-keystone-template 
+  annotations:
+    description: "Keystone" 
+    iconClass: "icon-redis" 
+    tags: "openstack,keystone"
+objects:   
+  - apiVersion: batch/v1
+    kind: Job
     metadata:
-      annotations:
-        pod.beta.kubernetes.io/init-containers: '[          
-          {
-             "name": "dependencies",
-             "image": "172.30.202.25:5000/osp-dev/rhel-binary-keystone",
-             "imagePullPolicy": "IfNotPresent",
-             "env": [
-               {
-                 "name": "DEPENDENCY_JOBS",
-                 "value": "keystone-create-db,keystone-manage-db"
-               },
-               {
-                 "name": "DEPENDENCY_SERVICE",
-                 "value": "mariadb"
-               },
-               {
-                 "name": "NAMESPACE",
-                 "value": "NAMESPACE"
-               }
-             ]
-          }    
-    ]'
+      name: "keystone-create-db"
     spec:
-      nodeSelector:
-          kolla_controller: "true"
-      restartPolicy: OnFailure
-      containers:
-        - image: "172.30.202.25:5000/osp-dev/rhel-binary-keystone"
-          imagePullPolicy: "IfNotPresent"
-          name: main
-          command: ["sh", "-c", "mkdir -p /var/log/kolla/keystone; sudo -E kolla_set_configs;
-                    kolla_keystone_bootstrap admin
-                    $KEYSTONE_ADMIN_PASSWORD
-                    admin
-                    admin
-                    http://keystone-admin:35357/v3
-                    http://keystone-internal:5000/v3
-                    http://keystone-public:5000/v3
-                    RegionOne"]
-          volumeMounts:            
-            - mountPath: /var/log/kolla/
-              name: kolla-logs
-            - mountPath: /etc/localtime
-              name: host-etc-localtime
-              readOnly: true
-            - mountPath: /var/lib/kolla/config_files
-              name: service-configmap
-              readOnly: true
-          env:
-            - name: KOLLA_KUBERNETES
-              value: ""
-            - name: KOLLA_CONFIG_STRATEGY
-              value: "COPY_ONCE"
-            - name: KEYSTONE_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: keystone-admin-password
-                  key: password
-      volumes:        
-        - name: host-etc-localtime
-          hostPath:
-            path: /etc/localtime
-        - name: kolla-logs
-          emptyDir: {}
-        - name: service-configmap
-          configMap:
-            name: keystone
-
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: "keystone-manage-db"
-spec:
-  template:    
-    metadata:
-      annotations:
-        pod.beta.kubernetes.io/init-containers: '[          
-          {
-             "name": "dependencies",
-             "image": "172.30.202.25:5000/osp-dev/rhel-binary-keystone",
-             "imagePullPolicy": "IfNotPresent",
-             "env": [
-               {
-                 "name": "DEPENDENCY_JOBS",
-                 "value": "keystone-create-db"
-               },
-               {
-                 "name": "DEPENDENCY_SERVICE",
-                 "value": "mariadb"
-               },
-               {
-                 "name": "NAMESPACE",
-                 "value": "NAMESPACE"
-               }
-             ]
-          }    
-    ]'
+      template:    
+        metadata:
+          annotations:
+            pod.beta.kubernetes.io/init-containers: '[          
+              {
+                 "name": "dependencies",
+                 "image": "172.30.202.25:5000/osp-dev/rhel-binary-keystone",
+                 "imagePullPolicy": "IfNotPresent",
+                 "env": [
+                   {
+                     "name": "DEPENDENCY_SERVICE",
+                     "value": "mariadb"
+                   },
+                   {
+                     "name": "NAMESPACE",
+                     "value": "NAMESPACE"
+                   }
+                 ]
+              }  
+      ]'
+        spec:
+          nodeSelector:
+              kolla_controller: "true"
+          restartPolicy: OnFailure
+          containers:
+            - image: "172.30.202.25:5000/osp-dev/rhel-binary-keystone"
+              imagePullPolicy: "IfNotPresent"
+              name: "creating-keystone-database"
+              command: ["sh", "-c"]
+              args:
+                - ansible localhost -m mysql_db -a
+                  "login_host='mariadb'
+                   login_port='3306'
+                   login_user='root'
+                   login_password='$DATABASE_PASSWORD'
+                   name='keystone'"
+              volumeMounts:
+                - mountPath: /var/log/kolla/
+                  name: kolla-logs
+              env:
+                - name: ANSIBLE_NOCOLOR
+                  value: "1"
+                - name: ANSIBLE_LIBRARY
+                  value: "/usr/share/ansible"
+                - name: DATABASE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: database-password
+                      key: password
+            - image: "172.30.202.25:5000/osp-dev/rhel-binary-keystone"
+              imagePullPolicy: "IfNotPresent"
+              name: "creating-keystone-user-and-permissions"
+              command: ["sh", "-c"]
+              args:
+                - ansible localhost -m mysql_user -a
+                  "login_host='mariadb'
+                   login_port='3306'
+                   login_user='root'
+                   login_password='$DATABASE_PASSWORD'
+                   name='keystone'
+                   password='$KEYSTONE_DATABASE_PASSWORD'
+                   host='%'
+                   priv='keystone.*:ALL'
+                   append_privs='yes'"
+              volumeMounts:
+                - mountPath: /var/log/kolla/
+                  name: kolla-logs
+              env:
+                - name: ANSIBLE_NOCOLOR
+                  value: "1"
+                - name: ANSIBLE_LIBRARY
+                  value: "/usr/share/ansible"
+                - name: DATABASE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: database-password
+                      key: password
+                - name: "KEYSTONE_DATABASE_PASSWORD"
+                  valueFrom:
+                    secretKeyRef:
+                      name: "keystone-database-password"
+                      key: password
+          volumes:        
+            - name: kolla-logs
+              emptyDir: {}
+    
+  - apiVersion: v1
+    kind: Service
     spec:
-      nodeSelector:
-          kolla_controller: "true"
-      restartPolicy: OnFailure
-      containers:
-        - image: "172.30.202.25:5000/osp-dev/rhel-binary-keystone"
-          imagePullPolicy: "IfNotPresent"
-          name: "main"
-          volumeMounts:
-            
-            - mountPath: /var/log/kolla/
-              name: kolla-logs
-            - mountPath: /etc/localtime
-              name: host-etc-localtime
-              readOnly: true
-            - mountPath: /var/lib/kolla/config_files
-              name: service-configmap
-              readOnly: true
-          env:
-            - name: KOLLA_KUBERNETES
-              value: ""
-            - name: KOLLA_BOOTSTRAP
-              value: ""
-            - name: KOLLA_CONFIG_STRATEGY
-              value: "COPY_ONCE"
-      volumes:        
-        - name: host-etc-localtime
-          hostPath:
-            path: /etc/localtime
-        - name: kolla-logs
-          emptyDir: {}
-        - name: service-configmap
-          configMap:
-            name: keystone
-
----
-apiVersion: v1
-kind: Service
-spec:
-  ports:
-    - port: 35357
-      name: "keystone-admin"
-  selector:
-    service: "keystone"
-    type: "api"
-metadata:
-   name:  "keystone-admin"
-
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-   name: keystone
-spec:
-  replicas: 1
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
-    type: RollingUpdate
-  template:
+      ports:
+        - port: 5000
+          name: "keystone-public"
+      externalIPs:
+        - 
+      selector:
+        service: "keystone"
+        type: "api"
     metadata:
+       name:  "keystone-public"
+    
+  - apiVersion: v1
+    kind: Service
+    spec:
+      ports:
+        - port: 5000
+          name: "keystone-internal"
+      externalIPs:
+        - 
+      selector:
+        service: "keystone"
+        type: "api"
+    metadata:
+       name:  "keystone-internal"
+    
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: keystone-create-endpoints
+    spec:
+      template:    
+        metadata:
+          annotations:
+            pod.beta.kubernetes.io/init-containers: '[          
+              {
+                 "name": "dependencies",
+                 "image": "172.30.202.25:5000/osp-dev/rhel-binary-keystone",
+                 "imagePullPolicy": "IfNotPresent",
+                 "env": [
+                   {
+                     "name": "DEPENDENCY_JOBS",
+                     "value": "keystone-create-db,keystone-manage-db"
+                   },
+                   {
+                     "name": "DEPENDENCY_SERVICE",
+                     "value": "mariadb"
+                   },
+                   {
+                     "name": "NAMESPACE",
+                     "value": "NAMESPACE"
+                   }
+                 ]
+              }    
+        ]'
+        spec:
+          nodeSelector:
+              kolla_controller: "true"
+          restartPolicy: OnFailure
+          containers:
+            - image: "172.30.202.25:5000/osp-dev/rhel-binary-keystone"
+              imagePullPolicy: "IfNotPresent"
+              name: main
+              command: ["sh", "-c", "mkdir -p /var/log/kolla/keystone; sudo -E kolla_set_configs;
+                        kolla_keystone_bootstrap admin
+                        $KEYSTONE_ADMIN_PASSWORD
+                        admin
+                        admin
+                        http://keystone-admin:35357/v3
+                        http://keystone-internal:5000/v3
+                        http://keystone-public:5000/v3
+                        RegionOne"]
+              volumeMounts:            
+                - mountPath: /var/log/kolla/
+                  name: kolla-logs
+                - mountPath: /var/lib/kolla/config_files
+                  name: service-configmap
+                  readOnly: true
+              env:
+                - name: KOLLA_CONFIG_STRATEGY
+                  value: "COPY_ONCE"
+                - name: KEYSTONE_ADMIN_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: keystone-admin-password
+                      key: password
+          volumes:        
+            - name: kolla-logs
+              emptyDir: {}
+            - name: service-configmap
+              configMap:
+                name: keystone
+    
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: "keystone-manage-db"
+    spec:
+      template:    
+        metadata:
+          annotations:
+            pod.beta.kubernetes.io/init-containers: '[          
+              {
+                 "name": "dependencies",
+                 "image": "172.30.202.25:5000/osp-dev/rhel-binary-keystone",
+                 "imagePullPolicy": "IfNotPresent",
+                 "env": [
+                   {
+                     "name": "DEPENDENCY_JOBS",
+                     "value": "keystone-create-db"
+                   },
+                   {
+                     "name": "DEPENDENCY_SERVICE",
+                     "value": "mariadb"
+                   },
+                   {
+                     "name": "NAMESPACE",
+                     "value": "NAMESPACE"
+                   }
+                 ]
+              }    
+        ]'
+        spec:
+          nodeSelector:
+              kolla_controller: "true"
+          restartPolicy: OnFailure
+          containers:
+            - image: "172.30.202.25:5000/osp-dev/rhel-binary-keystone"
+              imagePullPolicy: "IfNotPresent"
+              name: "main"
+              volumeMounts:
+                - mountPath: /var/log/kolla/
+                  name: kolla-logs
+                - mountPath: /var/lib/kolla/config_files
+                  name: service-configmap
+                  readOnly: true
+              env:
+                - name: KOLLA_CONFIG_STRATEGY
+                  value: "COPY_ONCE"
+          volumes:        
+            - name: kolla-logs
+              emptyDir: {}
+            - name: service-configmap
+              configMap:
+                name: keystone
+    
+  - apiVersion: v1
+    kind: Service
+    spec:
+      ports:
+        - port: 35357
+          name: "keystone-admin"
+      selector:
+        service: "keystone"
+        type: "api"
+    metadata:
+       name:  "keystone-admin"
+    
+  - apiVersion: extensions/v1beta1
+    kind: Deployment
+    metadata:
+       name: keystone
+    spec:
+      replicas: 1
+      strategy:
+        rollingUpdate:
+          maxSurge: 1
+          maxUnavailable: 1
+        type: RollingUpdate
+      template:
+        metadata:
+          labels:
+            service: keystone
+            type: api
+          annotations:
+            kolla_upgrade: minor_rolling_safe        
+            pod.beta.kubernetes.io/init-containers: '[  
+              {
+                 "name": "dependencies",
+                 "image": "172.30.202.25:5000/osp-dev/rhel-binary-keystone",
+                 "imagePullPolicy": "IfNotPresent",
+                 "env": [
+                   {
+                     "name": "DEPENDENCY_JOBS",
+                     "value": "keystone-create-endpoints,keystone-create-db,keystone-manage-db"
+                   },
+                   {
+                     "name": "DEPENDENCY_SERVICE",
+                     "value": "mariadb"
+                   },
+                   {
+                     "name": "NAMESPACE",
+                     "value": "NAMESPACE"
+                   }
+                 ]
+              },
+              {
+                 "name": "initialize-keystone-logs",
+                 "image": "172.30.202.25:5000/osp-dev/rhel-binary-keystone",
+                 "imagePullPolicy": "IfNotPresent",
+                 "command": [
+                     "sh",
+                     "-ce",
+                     "mkdir /var/log/kolla/keystone ;
+                      chown -R keystone: /var/log/kolla/keystone;
+                      chmod 755 /var/log/kolla/keystone; "],
+                 "volumeMounts": [
+                    {
+                       "name": "kolla-logs",
+                       "mountPath": "/var/log/kolla"
+                    }
+                 ]
+              }
+            ]'
+        spec:
+          terminationGracePeriodSeconds: 
+          nodeSelector:
+              kolla_controller: "true"
+          containers:
+            - name: main
+              image: "172.30.202.25:5000/osp-dev/rhel-binary-keystone"
+              imagePullPolicy: "IfNotPresent"
+              lifecycle:
+                preStop:
+                  exec:
+                    command:
+                      - apachectl -k graceful-stop
+              volumeMounts:
+                - mountPath: /var/log/kolla/
+                  name: kolla-logs
+                - mountPath: /var/lib/kolla-kubernetes/event
+                  name: kolla-kubernetes-events
+                - mountPath: /var/lib/kolla/config_files
+                  name: service-configmap
+              env:
+                - name: KOLLA_CONFIG_STRATEGY
+                  value: COPY_ONCE
+              ports:
+                - containerPort: 5000
+                  name: keystone-public
+                - containerPort: 35357
+                  name: keystone-admin        
+          volumes:        
+            - name: kolla-logs
+              emptyDir: {}
+            - name: kolla-kubernetes-events
+              emptyDir: {}
+            - name: service-configmap
+              configMap:
+                name: keystone            
+                items:
+                - key: keystone.conf
+                  path: keystone.conf
+                - key: keystone-paste.ini
+                  path: keystone-paste.ini
+                - key: wsgi-keystone.conf
+                  path: wsgi-keystone.conf
+                - key: config.json
+                  path: config.json
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: service-configmap
+      namespace: default
       labels:
         service: keystone
-        type: api
-      annotations:
-        kolla_upgrade: minor_rolling_safe        
-        pod.beta.kubernetes.io/init-containers: '[  
-          {
-             "name": "dependencies",
-             "image": "172.30.202.25:5000/osp-dev/rhel-binary-keystone",
-             "imagePullPolicy": "IfNotPresent",
-             "env": [
-               {
-                 "name": "DEPENDENCY_JOBS",
-                 "value": "keystone-create-endpoints,keystone-create-db,keystone-manage-db"
-               },
-               {
-                 "name": "DEPENDENCY_SERVICE",
-                 "value": "mariadb"
-               },
-               {
-                 "name": "NAMESPACE",
-                 "value": "NAMESPACE"
-               }
-             ]
-          },
-          {
-             "name": "initialize-keystone-logs",
-             "image": "172.30.202.25:5000/osp-dev/rhel-binary-keystone",
-             "imagePullPolicy": "IfNotPresent",
-             "command": [
-                 "sh",
-                 "-ce",
-                 "mkdir /var/log/kolla/keystone ;
-                  chown -R keystone: /var/log/kolla/keystone;
-                  chmod 755 /var/log/kolla/keystone; "],
-             "volumeMounts": [
-                {
-                   "name": "kolla-logs",
-                   "mountPath": "/var/log/kolla"
-                }
-             ]
-          }
-        ]'
-    spec:
-#You've got 2 days to drain or figure out why it won't.
-      terminationGracePeriodSeconds: 
-      nodeSelector:
-          kolla_controller: "true"
-      containers:
-        - name: main
-          image: "172.30.202.25:5000/osp-dev/rhel-binary-keystone"
-          imagePullPolicy: "IfNotPresent"
-          lifecycle:
-            preStop:
-              exec:
-                command:
-                  - apachectl -k graceful-stop
-          volumeMounts:
-            
-            - mountPath: /var/log/kolla/
-              name: kolla-logs
-            - mountPath: /etc/localtime
-              name: host-etc-localtime
-              readOnly: true
-            - mountPath: /var/lib/kolla-kubernetes/event
-              name: kolla-kubernetes-events
-            - mountPath: /var/lib/kolla/config_files
-              name: service-configmap
-          env:
-            - name: KOLLA_KUBERNETES
-              value: ""
-            - name: KOLLA_CONFIG_STRATEGY
-              value: COPY_ONCE
-          ports:
-            - containerPort: 5000
-              name: keystone-public
-            - containerPort: 35357
-              name: keystone-admin        
-        - name: logging
-          image: "172.30.202.25:5000/osp-dev/rhel-binary-fluentd"
-          imagePullPolicy: "IfNotPresent"
-          volumeMounts:
-            - mountPath: /var/lib/kolla/config_files
-              name: logging-config    
-            - mountPath: /var/log/kolla/
-              name: kolla-logs
-            - mountPath: /etc/localtime
-              name: host-etc-localtime
-              readOnly: true
-          env:
-            - name: KOLLA_CONFIG_STRATEGY
-              value: COPY_ONCE
-      volumes:        
-        - name: host-etc-localtime
-          hostPath:
-            path: /etc/localtime
-        - name: kolla-logs
-          emptyDir: {}
-        - name: logging-config
-          configMap:
-            name: keystone-logging
-        - name: kolla-kubernetes-events
-          emptyDir: {}
-        - name: service-configmap
-          configMap:
-            name: keystone            
-            items:
-            - key: keystone.conf
-              path: keystone.conf
-            - key: keystone-paste.ini
-              path: keystone-paste.ini
-            - key: wsgi-keystone.conf
-              path: wsgi-keystone.conf
-            - key: config.json
-              path: config.json
+    data:
+      config.json: |
+        {
+            "command": "/usr/sbin/httpd -DFOREGROUND",
+            "config_files": [
+              {
+                "dest": "/etc/httpd/conf/httpd.conf",
+                "owner": "root",
+                "perm": "0644",
+                "source": "/var/lib/kolla/config_files/httpd.conf"
+              },
+              {
+                "dest": "/etc/keystone/keystone.conf",
+                "owner": "keystone",
+                "perm": "0644",
+                "source": "/var/lib/kolla/config_files/keystone.conf"
+              },
+              {
+                "dest": "/etc/httpd/conf.d/10-keystone-main.conf",
+                "owner": "root",
+                "perm": "0644",
+                "source": "/var/lib/kolla/config_files/httpd-keystone-main.conf"
+              },
+              {
+                "dest": "/etc/httpd/conf.d/10-keystone-admin.conf",
+                "owner": "root",
+                "perm": "0644",
+                "source": "/var/lib/kolla/config_files/httpd-keystone-admin.conf"
+              }
+            ]
+        }
+      keystone.conf: |
+        [DEFAULT]
+        bind_host = 0.0.0.0
+        sql_connection=mysql+pymysql://root:$DATABASE_PASSWORD@mariadb:3306/keystone
+        [token]
+        provider=fernet
+      httpd.conf: |
+        Listen *:5000
+        Listen *:35357
 
+        ServerRoot "/etc/httpd"
+        DocumentRoot "/var/www/html"
+        User apache
+        Group apache
+
+        Include conf.modules.d/*.conf
+
+        <Directory />
+            AllowOverride none
+            Require all denied
+        </Directory>
+
+        <Directory "/var/www">
+            AllowOverride None
+            # Allow open access:
+            Require all granted
+        </Directory>
+
+        <Directory "/var/www/cgi-bin">
+            AllowOverride None
+            Options None
+            Require all granted
+        </Directory>
+
+        <IfModule dir_module>
+            DirectoryIndex index.html
+        </IfModule>
+
+        <Files ".ht*">
+            Require all denied
+        </Files>
+
+        ErrorLog /dev/stderr
+        <IfModule log_config_module>
+            LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined
+            LogFormat "%h %l %u %t \"%r\" %>s %b" common
+
+            <IfModule logio_module>
+              # You need to enable mod_logio.c to use %I and %O
+              LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" %I %O" combinedio
+            </IfModule>
+
+            CustomLog /dev/stdout combined
+        </IfModule>
+
+        <IfModule mime_module>
+            #
+            # TypesConfig points to the file containing the list of mappings from
+            # filename extension to MIME-type.
+            #
+            TypesConfig /etc/mime.types
+
+            #
+            # AddType allows you to add to or override the MIME configuration
+            # file specified in TypesConfig for specific file types.
+            #
+            #AddType application/x-gzip .tgz
+            #
+            # AddEncoding allows you to have certain browsers uncompress
+            # information on the fly. Note: Not all browsers support this.
+            #
+            #AddEncoding x-compress .Z
+            #AddEncoding x-gzip .gz .tgz
+            #
+            # If the AddEncoding directives above are commented-out, then you
+            # probably should define those extensions to indicate media types:
+            #
+            AddType application/x-compress .Z
+            AddType application/x-gzip .gz .tgz
+
+            #
+            # AddHandler allows you to map certain file extensions to "handlers":
+            # actions unrelated to filetype. These can be either built into the server
+            # or added with the Action directive (see below)
+            #
+            # To use CGI scripts outside of ScriptAliased directories:
+            # (You will also need to add "ExecCGI" to the "Options" directive.)
+            #
+            #AddHandler cgi-script .cgi
+
+            # For type maps (negotiated resources):
+            #AddHandler type-map var
+
+            #
+            # Filters allow you to process content before it is sent to the client.
+            #
+            # To parse .shtml files for server-side includes (SSI):
+            # (You will also need to add "Includes" to the "Options" directive.)
+            #
+            AddType text/html .shtml
+            AddOutputFilter INCLUDES .shtml
+        </IfModule>
+
+        AddDefaultCharset UTF-8
+
+        <IfModule mime_magic_module>
+            #
+            # The mod_mime_magic module allows the server to use various hints from the
+            # contents of the file itself to determine its type.  The MIMEMagicFile
+            # directive tells the module where the hint definitions are located.
+            #
+            MIMEMagicFile conf/magic
+        </IfModule>
+
+        EnableSendfile on
+
+        # Supplemental configuration
+        #
+        # Load config files in the "/etc/httpd/conf.d" directory, if any.
+        IncludeOptional conf.d/*.conf
+      httpd-keystone-main.conf: |
+        <VirtualHost *:5000>
+          ## Vhost docroot
+          DocumentRoot "/var/www/cgi-bin/keystone"
+
+          ## Directories, there should at least be a declaration for /var/www/cgi-bin/keystone
+
+          <Directory "/var/www/cgi-bin/keystone">
+            Options Indexes FollowSymLinks MultiViews
+            AllowOverride None
+            Require all granted
+          </Directory>
+
+          ## Logging
+          # ErrorLog "/var/log/httpd/keystone_wsgi_main_error.log"
+          ServerSignature Off
+          # CustomLog "/var/log/httpd/keystone_wsgi_main_access.log" combined
+          WSGIApplicationGroup %{GLOBAL}
+          WSGIDaemonProcess keystone_main display-name=keystone-main group=keystone processes=2 threads=1 user=keystone
+          WSGIProcessGroup keystone_main
+          WSGIScriptAlias / "/var/www/cgi-bin/keystone/main"
+          WSGIPassAuthorization On
+        </VirtualHost>
+      httpd-keystone-admin.conf: |
+        <VirtualHost *:35357>
+          ## Vhost docroot
+          DocumentRoot "/var/www/cgi-bin/keystone"
+
+          ## Directories, there should at least be a declaration for /var/www/cgi-bin/keystone
+
+          <Directory "/var/www/cgi-bin/keystone">
+            Options Indexes FollowSymLinks MultiViews
+            AllowOverride None
+            Require all granted
+          </Directory>
+
+          ## Logging
+          # ErrorLog "/var/log/httpd/keystone_wsgi_admin_error.log"
+          ServerSignature Off
+          # CustomLog "/var/log/httpd/keystone_wsgi_admin_access.log" combined
+          WSGIApplicationGroup %{GLOBAL}
+          WSGIDaemonProcess keystone_admin display-name=keystone-admin group=keystone processes=2 threads=1 user=keystone
+          WSGIProcessGroup keystone_admin
+          WSGIScriptAlias / "/var/www/cgi-bin/keystone/admin"
+          WSGIPassAuthorization On
+        </VirtualHost>
