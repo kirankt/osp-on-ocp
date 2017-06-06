@@ -19,7 +19,7 @@ objects:
           annotations:
             pod.beta.kubernetes.io/init-containers: '[          
               {
-                 "name": "dependencies",
+                 "name": "bootstrap",
                  "image": "172.30.202.25:5000/osp-dev/rhel-binary-mariadb",
                  "imagePullPolicy": "IfNotPresent",
                  "env": [
@@ -28,12 +28,31 @@ objects:
                      "value": "UTC"
                    },
                    {
-                     "name": "DEPENDENCY_JOBS",
-                     "value": "mariadb-init-element"
+                     "name": "KOLLA_CONFIG_STRATEGY",
+                     "value": "COPY_ALWAYS"
                    },
                    {
-                     "name": "NAMESPACE",
-                     "value": "NAMESPACE"
+                     "name": "DB_ROOT_PASSWORD",
+                     "valueFrom": [
+                        "secretKeyRef": [
+                          "name": "database-password",
+                          "key": "password"
+                        ]
+                     ]
+                   }
+                 ]
+                 "volumeMounts": [
+                   {
+                     "name": "kolla-config",
+                     "mountPath": "/var/lib/kolla/config_files/"
+                   },
+                   {
+                     "name": "mariadb-config",
+                     "mountPath": "/etc/my.cnf.d"
+                   },
+                   {
+                     "name": "mariadb-persistent-storage",
+                     "mountPath": "/var/lib/mysql"
                    }
                  ]
               }
@@ -89,56 +108,6 @@ objects:
                 claimName: mariadb
     metadata:
        name: mariadb
-
-  - apiVersion: batch/v1
-    kind: Job
-    spec:
-      template:
-        spec:
-          containers:
-            - image: "172.30.202.25:5000/osp-dev/rhel-binary-mariadb"
-              imagePullPolicy: "IfNotPresent"
-              name: main
-              volumeMounts:            
-                - mountPath: /var/log/kolla/
-                  name: kolla-logs
-                - mountPath: /etc/my.cnf.d
-                  name: mariadb-config
-                - mountPath: /var/lib/kolla/config_files
-                  name: kolla-config
-                - mountPath: /var/lib/mysql
-                  name: mariadb-persistent-storage
-              env:            
-                - name: TZ
-                  value: UTC
-                - name: KOLLA_CONFIG_STRATEGY
-                  value: COPY_ONCE
-                - name: DB_ROOT_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: database-password
-                      key: password
-          volumes:        
-            - name: kolla-logs
-              emptyDir: {}
-            - name: mariadb-config
-              configMap:
-                name: mariadb-kolla-config
-                items:
-                  - key: server-cnf
-                    path: server.cnf
-            - name: kolla-config
-              configMap:
-                name: mariadb-kolla-config
-                items:
-                  - key: kolla-config
-                    path: config.json
-            - name: mariadb-persistent-storage
-              persistentVolumeClaim:
-                claimName: mariadb
-          restartPolicy: OnFailure
-    metadata:
-      name: mariadb-init-element
 
   - apiVersion: v1
     kind: ConfigMap
