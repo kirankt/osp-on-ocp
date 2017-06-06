@@ -39,8 +39,6 @@ objects:
               }
             ]'
         spec:
-          nodeSelector:
-              kolla_controller: "true"
           containers:
             - image: "172.30.202.25:5000/osp-dev/rhel-binary-mariadb"
               imagePullPolicy: "IfNotPresent"
@@ -74,9 +72,18 @@ objects:
           volumes:        
             - name: kolla-logs
               emptyDir: {}
+            - name: mariadb-config
+              configMap:
+                name: mariadb-kolla-config
+                items:
+                  - key: server-cnf
+                    path: server.cnf
             - name: kolla-config
               configMap:
-                name: mariadb
+                name: mariadb-kolla-config
+                items:
+                  - key: kolla-config
+                    path: config.json
             - name: mariadb-persistent-storage
               persistentVolumeClaim:
                 claimName: mariadb
@@ -88,8 +95,6 @@ objects:
     spec:
       template:
         spec:
-          nodeSelector:
-              kolla_controller: "true"
           containers:
             - image: "172.30.202.25:5000/osp-dev/rhel-binary-mariadb"
               imagePullPolicy: "IfNotPresent"

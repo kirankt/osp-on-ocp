@@ -58,7 +58,7 @@ objects:
             env:
             - name: "KOLLA_CONFIG_STRATEGY"
               value: "${KOLLA_CONFIG_STRATEGY}"
-            image: rhel-binary-horizon
+            image: $REGISTRY/rhel-binary-horizon
             ports:
             - containerPort: 8080
               protocol: TCP
@@ -501,4 +501,8 @@ parameters:
   - description: "OpenStack Host"
     name: OPENSTACK_HOST
     value: 10.19.5.11
+    required: true
+  - description: "Registry Location"
+    name: REGISTRY
+    value: 172.30.202.25:5000/osp-dev
     required: true
