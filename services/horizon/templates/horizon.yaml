@@ -217,7 +217,7 @@ objects:
                 'LOCATION': ['memcached:11211']    }
         }
         EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-        OPENSTACK_HOST = ${OPENSTACK_HOST}
+        OPENSTACK_HOST = "${OPENSTACK_HOST}"
         OPENSTACK_KEYSTONE_URL = "https://${OPENSTACK_HOST}:13000/v2.0"
         OPENSTACK_KEYSTONE_DEFAULT_ROLE = "_member_"
         OPENSTACK_SSL_NO_VERIFY = False
