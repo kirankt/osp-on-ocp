@@ -58,7 +58,7 @@ objects:
             env:
             - name: "KOLLA_CONFIG_STRATEGY"
               value: "${KOLLA_CONFIG_STRATEGY}"
-            image: $REGISTRY/rhel-binary-horizon
+            image: ${REGISTRY}rhel-binary-horizon
             ports:
             - containerPort: 8080
               protocol: TCP
@@ -504,5 +504,5 @@ parameters:
     required: true
   - description: "Registry Location"
     name: REGISTRY
-    value: 172.30.202.25:5000/osp-dev
+    value: "172.30.202.25:5000/osp-dev/"
     required: true
