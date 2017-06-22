@@ -31,7 +31,7 @@ objects:
                    }
                  ]
               }  
-      ]'
+            ]'
         spec:
           nodeSelector:
               kolla_controller: "true"
@@ -154,7 +154,7 @@ objects:
                    }
                  ]
               }    
-        ]'
+            ]'
         spec:
           nodeSelector:
               kolla_controller: "true"
@@ -221,7 +221,7 @@ objects:
                    }
                  ]
               }    
-        ]'
+            ]'
         spec:
           nodeSelector:
               kolla_controller: "true"

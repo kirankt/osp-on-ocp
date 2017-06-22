@@ -18,44 +18,47 @@ objects:
             service: mariadb
           annotations:
             pod.beta.kubernetes.io/init-containers: '[          
-              {
-                 "name": "bootstrap",
-                 "image": "172.30.202.25:5000/osp-dev/rhel-binary-mariadb",
-                 "imagePullPolicy": "IfNotPresent",
-                 "env": [
-                   {
-                     "name": "TZ",
-                     "value": "UTC"
-                   },
-                   {
-                     "name": "KOLLA_CONFIG_STRATEGY",
-                     "value": "COPY_ALWAYS"
-                   },
-                   {
-                     "name": "DB_ROOT_PASSWORD",
-                     "valueFrom": [
-                        "secretKeyRef": [
-                          "name": "database-password",
-                          "key": "password"
-                        ]
-                     ]
-                   }
-                 ]
-                 "volumeMounts": [
-                   {
-                     "name": "kolla-config",
-                     "mountPath": "/var/lib/kolla/config_files/"
-                   },
-                   {
-                     "name": "mariadb-config",
-                     "mountPath": "/etc/my.cnf.d"
-                   },
-                   {
-                     "name": "mariadb-persistent-storage",
-                     "mountPath": "/var/lib/mysql"
-                   }
-                 ]
-              }
+                {
+                   "name": "bootstrap",
+                   "image": "172.30.202.25:5000/osp-dev/rhel-binary-mariadb",
+                   "imagePullPolicy": "IfNotPresent",
+                   "env": [
+                     {
+                       "name": "KOLLA_KUBERNETES",
+                       "value": ""
+                     },
+                     {
+                       "name": "KOLLA_BOOTSTRAP",
+                       "value": ""
+                     },
+                     {
+                       "name": "TZ",
+                       "value": "UTC"
+                     },
+                     {
+                       "name": "KOLLA_CONFIG_STRATEGY",
+                       "value": "COPY_ALWAYS"
+                     },
+                     {
+                       "name": "DB_ROOT_PASSWORD",
+                       "value": "mysqlpass"
+                     }
+                   ],
+                   "volumeMounts": [
+                     {
+                       "name": "kolla-config",
+                       "mountPath": "/var/lib/kolla/config_files/"
+                     },
+                     {
+                       "name": "mariadb-config",
+                       "mountPath": "/etc/my.cnf.d"
+                     },
+                     {
+                       "name": "mariadb-persistent-storage",
+                       "mountPath": "/var/lib/mysql"
+                     }
+                   ]
+                }
             ]'
         spec:
           containers:
